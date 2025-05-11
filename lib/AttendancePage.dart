@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fitstrongcheckin/SuccessScreen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -19,15 +20,43 @@ class _AttendancePageState extends State<AttendancePage> {
   bool _isLoading = false;
   String get dateText => DateFormat('d MMMM, y').format(DateTime.now());
   String get timeText => TimeOfDay.now().format(context);
+  List<String> _allNames = [];
+  bool _namesLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMemberNames();
+  }
+
+  Future<void> _fetchMemberNames() async {
+    try {
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('Users')
+              .doc(widget.gymId)
+              .collection('members')
+              .get();
+
+      setState(() {
+        _allNames =
+            querySnapshot.docs
+                .map((doc) => (doc['name'] as String).toLowerCase())
+                .toList();
+      });
+    } catch (e) {
+      debugPrint("Error fetching member names: $e");
+    }
+  }
 
   void _checkIn() async {
     String name = _nameController.text.trim();
 
-    if (name.isEmpty) {
+    if (name.isEmpty || !_allNames.contains(name)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Please enter Name',
+            'Please select a valid name from suggestions.',
             style: TextStyle(color: Colors.white),
           ),
           backgroundColor: Colors.red,
@@ -153,42 +182,86 @@ class _AttendancePageState extends State<AttendancePage> {
                     padding: const EdgeInsets.fromLTRB(28.0, 20, 28, 28),
                     child: SizedBox(
                       width: width * 0.7,
-                      child: TextFormField(
-                        controller: _nameController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Enter Your Name',
-                          labelText: 'Name',
-                          hintStyle: const TextStyle(color: Colors.white),
-                          labelStyle: const TextStyle(
-                            fontSize: 16.0,
-                            color: Colors.white,
-                          ),
-                          floatingLabelStyle: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 18,
-                            color: Colors.white,
-                          ),
-                          border: const OutlineInputBorder(),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(
+                      child: TypeAheadFormField<String>(
+                        textFieldConfiguration: TextFieldConfiguration(
+                          controller: _nameController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Enter Your Name',
+                            labelText: 'Name',
+                            hintStyle: const TextStyle(color: Colors.white70),
+                            labelStyle: const TextStyle(color: Colors.white),
+                            floatingLabelStyle: const TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 18,
                               color: Colors.white,
-                              width: 2,
                             ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(
+                            border: const OutlineInputBorder(),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                            ),
+                            suffixIcon: const Icon(
+                              Icons.person,
                               color: Colors.white,
-                              width: 2,
                             ),
-                          ),
-                          suffixIcon: const Icon(
-                            Icons.person,
-                            color: Colors.white,
                           ),
                         ),
+                        suggestionsCallback: (pattern) {
+                          final lowercasePattern = pattern.toLowerCase();
+                          return _allNames
+                              .where((name) => name.contains(lowercasePattern))
+                              .toList();
+                        },
+                        suggestionsBoxDecoration: SuggestionsBoxDecoration(
+                          color: Colors.white,
+                          elevation: 6.0,
+                          borderRadius: BorderRadius.circular(12),
+                          shadowColor: Colors.black.withOpacity(0.3),
+                        ),
+                        itemBuilder: (context, suggestion) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 4.0,
+                              horizontal: 12.0,
+                            ),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.all(12.0),
+                              child: Text(
+                                suggestion,
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        onSuggestionSelected: (suggestion) {
+                          _nameController.text = suggestion;
+                        },
+                        noItemsFoundBuilder:
+                            (context) => Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Text(
+                                'No match found',
+                                style: TextStyle(color: Colors.grey.shade700),
+                              ),
+                            ),
                       ),
                     ),
                   ),
