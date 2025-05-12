@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "fitstrong-gym"
+  },
+  "targets": {
+    "fitstrong-gym": {
+      "hosting": {
+        "fitstrong_checkin": [
+          "fitstrong-checkin"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
