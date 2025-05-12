@@ -1,9 +1,11 @@
+import 'dart:html' as html; // 👈 Add this for localStorage
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:fitstrongcheckin/InvalidGymPage.dart';
 import 'package:flutter/material.dart';
 
 import 'AttendancePage.dart';
+import 'InvalidGymPage.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -17,7 +19,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gymId = Uri.base.queryParameters['gym'];
+    String? gymId = Uri.base.queryParameters['gym'];
+
+    gymId ??= html.window.localStorage['gymId'];
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Gym Attendance',
@@ -46,9 +51,7 @@ class GymChecker extends StatelessWidget {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
-        } else if (snapshot.hasError) {
-          return const InvalidGymPage();
-        } else if (!snapshot.data!) {
+        } else if (snapshot.hasError || snapshot.data == false) {
           return const InvalidGymPage();
         } else {
           return AttendancePage(gymId: gymId);
