@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script>
+        // Save the gym ID to localStorage
+        const params = new URLSearchParams(window.location.search);
+        const gymId = params.get('gym');
+        if (gymId) {
+          localStorage.setItem('gymId', gymId);
+        }
+        // Redirect to the main app
+        window.location.replace("/");
+    </script>
+</head>
+<body>
+Redirecting...
+</body>
+</html>

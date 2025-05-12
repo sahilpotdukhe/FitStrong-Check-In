@@ -33,6 +33,10 @@
       ],
       "rewrites": [
         {
+          "source": "/redirect.html",
+          "destination": "/redirect.html"
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }
