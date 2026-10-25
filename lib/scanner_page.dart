@@ -26,6 +26,10 @@ class _ScannerPageState extends State<ScannerPage> {
   final MobileScannerController _camera = MobileScannerController(
     formats: const [BarcodeFormat.qrCode],
     detectionSpeed: DetectionSpeed.normal,
+    // The tablet sits facing the member across the desk, so the screen-side
+    // camera is the one pointing at them. Switchable for a desk laid out the
+    // other way round.
+    facing: CameraFacing.front,
   );
 
   /// How long a result stays up before the desk is ready for the next person.
@@ -87,6 +91,14 @@ class _ScannerPageState extends State<ScannerPage> {
     }
   }
 
+  Future<void> _switchCamera() async {
+    try {
+      await _camera.switchCamera();
+    } catch (error) {
+      debugPrint('Could not switch camera: $error');
+    }
+  }
+
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -131,20 +143,32 @@ class _ScannerPageState extends State<ScannerPage> {
           SafeArea(
             child: Column(
               children: [
-                Align(
-                  alignment: Alignment.topRight,
-                  child: IconButton(
-                    icon: const Icon(Icons.logout_rounded, color: Colors.white),
-                    tooltip: 'Sign out',
-                    onPressed: _signOut,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.cameraswitch_rounded,
+                          color: Colors.white),
+                      tooltip: 'Switch camera',
+                      onPressed: _switchCamera,
+                    ),
+                    IconButton(
+                      icon:
+                          const Icon(Icons.logout_rounded, color: Colors.white),
+                      tooltip: 'Sign out',
+                      onPressed: _signOut,
+                    ),
+                  ],
                 ),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: _result == null
-                      ? _Waiting(working: _working)
-                      : _ResultCard(result: _result!),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Center(
+                      child: _result == null
+                          ? _Waiting(working: _working)
+                          : _ResultCard(result: _result!),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -167,27 +191,32 @@ class _Waiting extends StatelessWidget {
       children: [
         if (working)
           const SizedBox(
-            height: 28,
-            width: 28,
+            height: 44,
+            width: 44,
             child: CircularProgressIndicator(
-              strokeWidth: 2.5,
+              strokeWidth: 3,
               valueColor: AlwaysStoppedAnimation(Colors.white),
             ),
           )
         else
-          const Icon(Icons.qr_code_2_rounded, color: Colors.white70, size: 40),
-        const SizedBox(height: 12),
+          const Icon(Icons.qr_code_2_rounded, color: Colors.white70, size: 72),
+        const SizedBox(height: 18),
         Text(
           working ? 'Checking…' : 'Hold your code up to the camera',
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white, fontSize: 17),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
   }
 }
 
-/// The card the desk actually reads: a face, a name, and what happened.
+/// The card the desk actually reads. Deliberately large: staff glance at it
+/// from a step away while the member is still walking past.
 class _ResultCard extends StatelessWidget {
   const _ResultCard({required this.result});
 
@@ -200,57 +229,66 @@ class _ResultCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: look.colour, width: 3),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: look.colour, width: 5),
+        boxShadow: const [
+          BoxShadow(color: Colors.black45, blurRadius: 30, spreadRadius: 4),
+        ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           _Face(photoUrl: member?.photoUrl ?? '', colour: look.colour),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 20),
+          Text(
+            member?.name.isNotEmpty == true ? member!.name : 'Unknown',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 34,
+              height: 1.1,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // The status reads as a band of colour, so the outcome is clear
+          // before anybody has read a word of it.
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: look.colour.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  member?.name.isNotEmpty == true ? member!.name : 'Unknown',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(look.icon, size: 18, color: look.colour),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        look.headline,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: look.colour,
-                        ),
-                      ),
+                Icon(look.icon, size: 26, color: look.colour),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    look.headline,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: look.colour,
                     ),
-                  ],
-                ),
-                if (look.detail != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    look.detail!,
-                    style: const TextStyle(fontSize: 13.5, color: Colors.black54),
                   ),
-                ],
+                ),
               ],
             ),
           ),
+          if (look.detail != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              look.detail!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 17, color: Colors.black54),
+            ),
+          ],
         ],
       ),
     );
@@ -265,16 +303,16 @@ class _Face extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double size = 72;
+    const double size = 150;
     final fallback = Container(
       height: size,
       width: size,
       color: colour.withValues(alpha: 0.12),
-      child: Icon(Icons.person_rounded, size: 36, color: colour),
+      child: Icon(Icons.person_rounded, size: 76, color: colour),
     );
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(22),
       child: photoUrl.isEmpty
           ? fallback
           : CachedNetworkImage(
@@ -305,21 +343,18 @@ class _Look {
 
     switch (result.outcome) {
       case ScanOutcome.checkedIn:
-        return _Look(const Color(0xFF15803D), Icons.login_rounded,
-            'Checked in', time == null ? null : 'Arrived at $time');
-      case ScanOutcome.checkedOut:
-        return _Look(const Color(0xFF1D4ED8), Icons.logout_rounded,
-            'Checked out', time == null ? null : 'Left at $time');
+        return _Look(const Color(0xFF15803D), Icons.check_circle_rounded,
+            'Checked in', time == null ? null : 'Marked present at $time');
       case ScanOutcome.expired:
         return const _Look(Color(0xFFB91C1C), Icons.block_rounded,
             'Membership expired', 'Renew the plan before letting them in.');
       case ScanOutcome.unknown:
         return const _Look(Color(0xFFB91C1C), Icons.help_outline_rounded,
             'Code not recognised', 'This code has been replaced or removed.');
-      case ScanOutcome.tooSoon:
-        return _Look(const Color(0xFFB45309), Icons.history_rounded,
-            'Already recorded',
-            time == null ? null : 'Last scanned at $time');
+      case ScanOutcome.alreadyIn:
+        return _Look(const Color(0xFFB45309), Icons.check_circle_outline,
+            'Already checked in',
+            time == null ? null : 'Marked present at $time');
       case ScanOutcome.failed:
         return const _Look(Color(0xFFB91C1C), Icons.wifi_off_rounded,
             'Could not save', 'Check the connection and scan again.');

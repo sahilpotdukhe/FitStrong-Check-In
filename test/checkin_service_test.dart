@@ -13,13 +13,12 @@ ScannedMember member({Duration expiresIn = const Duration(days: 30)}) {
   );
 }
 
-Attendance scan(CheckinType type, DateTime at) {
+Attendance scan(DateTime at) {
   return Attendance(
     id: 'a1',
     memberId: 'm1',
     memberName: 'Asha',
     at: at,
-    type: type,
     source: AttendanceSource.scanner,
   );
 }
@@ -69,7 +68,7 @@ void main() {
       expect(
         decide(
           who: member(expiresIn: const Duration(days: -1)),
-          last: scan(CheckinType.checkIn, now.subtract(const Duration(hours: 2))),
+          last: scan(now.subtract(const Duration(hours: 2))),
         ),
         ScanOutcome.expired,
       );
@@ -91,50 +90,29 @@ void main() {
       expect(decide(who: member()), ScanOutcome.checkedIn);
     });
 
-    test('checks them out when they are already in', () {
-      expect(
-        decide(
-          who: member(),
-          last: scan(CheckinType.checkIn, now.subtract(const Duration(hours: 2))),
-        ),
-        ScanOutcome.checkedOut,
-      );
-    });
 
-    test('checks them back in after they have left', () {
-      expect(
-        decide(
-          who: member(),
-          last: scan(
-              CheckinType.checkOut, now.subtract(const Duration(hours: 2))),
-        ),
-        ScanOutcome.checkedIn,
-      );
-    });
   });
 
-  group('the camera reading the same code twice', () {
-    test('the repeat is refused', () {
-      // Without this the next frame would check the member straight back
-      // out, and they would walk in already marked gone.
+  group('a member who is already marked present', () {
+    test('a second scan records nothing', () {
+      // Also covers the camera reading the same code many times a second
+      // while it is held up to the lens.
       expect(
         decide(
           who: member(),
-          last: scan(
-              CheckinType.checkIn, now.subtract(const Duration(seconds: 2))),
+          last: scan(now.subtract(const Duration(seconds: 2))),
         ),
-        ScanOutcome.tooSoon,
+        ScanOutcome.alreadyIn,
       );
     });
 
-    test('a real scan later in the day still counts', () {
+    test('still nothing hours later on the same day', () {
       expect(
         decide(
           who: member(),
-          last: scan(
-              CheckinType.checkIn, now.subtract(const Duration(minutes: 90))),
+          last: scan(now.subtract(const Duration(hours: 6))),
         ),
-        ScanOutcome.checkedOut,
+        ScanOutcome.alreadyIn,
       );
     });
   });

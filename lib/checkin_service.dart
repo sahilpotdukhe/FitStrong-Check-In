@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 /// What the desk should show after a code was held up.
 enum ScanOutcome {
   checkedIn,
-  checkedOut,
 
   /// Not one of our codes at all: a payment QR, a Wi-Fi code, a poster.
   notOurs,
@@ -16,8 +15,8 @@ enum ScanOutcome {
   /// Found them, but their plan has run out.
   expired,
 
-  /// The camera reading the same code again moments later.
-  tooSoon,
+  /// Already recorded today, so nothing was written.
+  alreadyIn,
 
   failed,
 }
@@ -29,8 +28,7 @@ class ScanResult {
   final ScannedMember? member;
   final DateTime? at;
 
-  bool get recorded =>
-      outcome == ScanOutcome.checkedIn || outcome == ScanOutcome.checkedOut;
+  bool get recorded => outcome == ScanOutcome.checkedIn;
 }
 
 /// Turns a scanned string into an attendance record.
@@ -58,11 +56,9 @@ class CheckinService {
     if (token == null) return ScanOutcome.notOurs;
     if (member == null) return ScanOutcome.unknown;
     if (member.isExpiredAt(now)) return ScanOutcome.expired;
-    if (CheckinRules.isRepeatScan(last, now)) return ScanOutcome.tooSoon;
+    if (CheckinRules.alreadyRecordedToday(last)) return ScanOutcome.alreadyIn;
 
-    return CheckinRules.nextType(last) == CheckinType.checkIn
-        ? ScanOutcome.checkedIn
-        : ScanOutcome.checkedOut;
+    return ScanOutcome.checkedIn;
   }
 
   Future<ScanResult> handle(String raw) async {
@@ -80,20 +76,17 @@ class CheckinService {
       final outcome =
           decide(token: token, member: member, last: last, now: now);
 
-      if (outcome != ScanOutcome.checkedIn &&
-          outcome != ScanOutcome.checkedOut) {
+      if (outcome != ScanOutcome.checkedIn) {
         return ScanResult(
           outcome,
           member: member,
-          at: outcome == ScanOutcome.tooSoon ? last?.at : null,
+          at: outcome == ScanOutcome.alreadyIn ? last?.at : null,
         );
       }
 
-      final type = CheckinRules.nextType(last);
       await _attendance.add(Attendance.newRecord(
         memberId: member!.id,
         memberName: member.name,
-        type: type,
         source: AttendanceSource.scanner,
       ));
 
