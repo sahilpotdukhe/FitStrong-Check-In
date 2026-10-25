@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,16 @@ import 'sign_in_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // The desk must keep working through a Wi-Fi drop. This is Firestore's
+  // default on a phone or tablet, but it is the whole reason check-ins are
+  // not lost, so it is written down rather than assumed. An unlimited cache
+  // means a long outage fills up with queued arrivals instead of evicting
+  // them, and everything on disk survives the tablet being restarted.
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
 
   // A desk scanner is held one way and used by staff, not browsed.
   await SystemChrome.setPreferredOrientations([
