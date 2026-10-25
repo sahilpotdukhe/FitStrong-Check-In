@@ -21,26 +21,5 @@
         }
       }
     }
-  },
-  "hosting": [
-    {
-      "target": "fitstrong_checkin",
-      "public": "build/web",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "rewrites": [
-        {
-          "source": "/redirect.html",
-          "destination": "/redirect.html"
-        },
-        {
-          "source": "**",
-          "destination": "/index.html"
-        }
-      ]
-    }
-  ]
+  }
 }
