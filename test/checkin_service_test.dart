@@ -93,6 +93,37 @@ void main() {
 
   });
 
+  group('a check-in that has not reached the server yet', () {
+    test('counts as recorded, so the desk gives the normal happy signal', () {
+      // The member is standing there and has been let in. The record is on
+      // the tablet's disk and will send itself. Buzzing an error at staff
+      // would send them to scan again and create a duplicate.
+      const queued = ScanResult(ScanOutcome.queued);
+      expect(queued.recorded, isTrue);
+    });
+
+    test('a refused write is not treated as recorded', () {
+      // The server answered and said no. Nothing is waiting to sync.
+      const failed = ScanResult(ScanOutcome.failed);
+      expect(failed.recorded, isFalse);
+    });
+
+    test('a normal check-in is still recorded', () {
+      expect(const ScanResult(ScanOutcome.checkedIn).recorded, isTrue);
+    });
+
+    test('nothing else counts as a record', () {
+      for (final outcome in [
+        ScanOutcome.notOurs,
+        ScanOutcome.unknown,
+        ScanOutcome.expired,
+        ScanOutcome.alreadyIn,
+      ]) {
+        expect(ScanResult(outcome).recorded, isFalse, reason: '\$outcome');
+      }
+    });
+  });
+
   group('a member who is already marked present', () {
     test('a second scan records nothing', () {
       // Also covers the camera reading the same code many times a second

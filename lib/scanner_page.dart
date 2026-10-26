@@ -40,8 +40,17 @@ class _ScannerPageState extends State<ScannerPage> {
   Timer? _clearResult;
 
   @override
+  void initState() {
+    super.initState();
+    // Pulls this gym's members onto the tablet and keeps them there, so a
+    // scan still finds the right person when the Wi-Fi is down.
+    _service.start();
+  }
+
+  @override
   void dispose() {
     _clearResult?.cancel();
+    _service.dispose();
     _camera.dispose();
     super.dispose();
   }
@@ -144,8 +153,8 @@ class _ScannerPageState extends State<ScannerPage> {
             child: Column(
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    Expanded(child: _PendingChip(service: _service)),
                     IconButton(
                       icon: const Icon(Icons.cameraswitch_rounded,
                           color: Colors.white),
@@ -175,6 +184,62 @@ class _ScannerPageState extends State<ScannerPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Quietly says how many check-ins are saved here but not yet sent.
+///
+/// Staff need to know the desk is behind without being alarmed by it — the
+/// records are safe, they are just waiting. It disappears entirely when
+/// there is nothing queued, which is almost always.
+class _PendingChip extends StatelessWidget {
+  const _PendingChip({required this.service});
+
+  final CheckinService service;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<int>(
+      stream: service.pendingCount(),
+      builder: (context, snapshot) {
+        final waiting = snapshot.data ?? 0;
+        if (waiting == 0) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFB45309),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off_rounded,
+                      size: 18, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      '\$waiting waiting to sync',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -345,6 +410,12 @@ class _Look {
       case ScanOutcome.checkedIn:
         return _Look(const Color(0xFF15803D), Icons.check_circle_rounded,
             'Checked in', time == null ? null : 'Marked present at $time');
+      case ScanOutcome.queued:
+        // Green like a normal check-in, because to the member it is one:
+        // they are in, and the record is safe. Only the wording differs.
+        return _Look(const Color(0xFF15803D), Icons.cloud_off_rounded,
+            'Checked in', 'Saved on this tablet. It will sync when the '
+                'internet is back.');
       case ScanOutcome.expired:
         return const _Look(Color(0xFFB91C1C), Icons.block_rounded,
             'Membership expired', 'Renew the plan before letting them in.');
