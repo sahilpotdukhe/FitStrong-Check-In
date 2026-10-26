@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'checkin_service.dart';
+import 'developer_credit.dart';
 
 /// The front desk screen: the camera runs continuously and every member who
 /// holds up a code gets a card with their own face on it, so staff can see at
@@ -155,6 +156,12 @@ class _ScannerPageState extends State<ScannerPage> {
                 Row(
                   children: [
                     Expanded(child: _PendingChip(service: _service)),
+                    IconButton(
+                      icon: const Icon(Icons.info_outline_rounded,
+                          color: Colors.white),
+                      tooltip: 'About this app',
+                      onPressed: () => showDeveloperSheet(context),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.cameraswitch_rounded,
                           color: Colors.white),

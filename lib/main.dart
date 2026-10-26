@@ -38,7 +38,7 @@ class CheckInApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'FitStrong Check-In',
+      title: 'FitStrong Attendance',
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF15803D)),

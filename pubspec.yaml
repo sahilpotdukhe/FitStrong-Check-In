@@ -1,5 +1,5 @@
 name: fitstrongcheckin
-description: "Front desk scanner for FitStrong gyms."
+description: "FitStrong Attendance - the front desk check-in app for FitStrong gyms."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -46,6 +46,10 @@ dependencies:
       ref: v0.4.0
   mobile_scanner: ^7.4.2
   cached_network_image: ^4.0.5
+  # Remembers the desk's email between sign ins.
+  shared_preferences: ^2.3.2
+  # Opens the developer's site from the credit on the sign in screen.
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:
