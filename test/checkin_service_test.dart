@@ -119,7 +119,7 @@ void main() {
         ScanOutcome.expired,
         ScanOutcome.alreadyIn,
       ]) {
-        expect(ScanResult(outcome).recorded, isFalse, reason: '\$outcome');
+        expect(ScanResult(outcome).recorded, isFalse, reason: '$outcome');
       }
     });
   });

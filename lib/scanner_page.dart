@@ -225,7 +225,7 @@ class _PendingChip extends StatelessWidget {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      '\$waiting waiting to sync',
+                      '$waiting waiting to sync',
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
