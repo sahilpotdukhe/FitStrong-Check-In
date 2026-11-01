@@ -238,10 +238,34 @@ test/                     every branch the desk can hit, no Firestore needed
 A release APK built as above installs normally. Two things are worth knowing:
 
 **Uninstall any older build first.** Android refuses to install an APK signed
-with a different key over one already on the device — it fails with a blunt
-*"App not installed"*. If the tablet is carrying an older debug-signed build,
-remove it before installing the signed one. This is a one-time step; once
-everything is on the same key, updates install straight over the top.
+with a different key over one already on the tablet. Debug builds (anything
+from `flutter run`) are signed with the shared Android debug key, release
+builds with the upload key, so the first release install on any tablet you
+have ever developed on will be rejected. Over USB the reason is explicit:
+
+```
+INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package com.fitstrong.checkin
+signatures do not match newer version; ignoring!
+```
+
+Through Firebase App Distribution or a file manager you get only a blunt
+*"App not installed"*, with nothing saying why.
+
+**The trap is that the old build can be invisible.** Android keeps the package
+record and its signature even after the app has been removed for your user, so
+it is gone from the launcher and from the app list while still blocking the
+install. `adb shell dumpsys package com.fitstrong.checkin` shows it as
+`installed=false` with a `DEBUGGABLE` flag and a `codePath` still on disk.
+
+Clearing it takes one command, and loses nothing — such a record has no app
+data behind it (`dataDir=null`), and the real data lives in Firestore:
+
+```bash
+adb uninstall com.fitstrong.checkin
+```
+
+Then install normally. This is a one-time step per tablet; once everything
+is on the same key, release updates install straight over the top.
 
 **Play Protect may ask once.** Any app installed outside the Play Store can
 raise a *"scan this app?"* or *"unknown developer"* prompt, because Google has
