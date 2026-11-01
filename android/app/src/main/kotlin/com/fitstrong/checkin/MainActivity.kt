@@ -1,4 +1,4 @@
-package com.example.fitstrongcheckin
+package com.fitstrong.checkin
 
 import io.flutter.embedding.android.FlutterActivity
 

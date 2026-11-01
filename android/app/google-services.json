@@ -7,28 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:264155203137:android:27d6986db35f92e3c1e8c0",
+        "mobilesdk_app_id": "1:264155203137:android:b805d87141059f4cc1e8c0",
         "android_client_info": {
-          "package_name": "com.example.fitstrong_gym"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBfEztCM2sEoCFzw0nokhCsAs8HJPeYHqg"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:264155203137:android:9aaa02fdf7421681c1e8c0",
-        "android_client_info": {
-          "package_name": "com.example.fitstrongcheckin"
+          "package_name": "com.fitstrong.checkin"
         }
       },
       "oauth_client": [],
