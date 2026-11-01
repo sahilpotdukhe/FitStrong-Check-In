@@ -55,19 +55,19 @@ void main() {
   });
 
   group('an expired membership', () {
-    test('is turned away', () {
+    test('is turned away once the days to pay have gone', () {
       expect(
-        decide(who: member(expiresIn: const Duration(days: -1))),
+        decide(who: member(expiresIn: const Duration(days: -8))),
         ScanOutcome.expired,
       );
     });
 
     test('is checked before the in/out rule, so no record is written', () {
-      // Even mid-session, an expired plan must not produce a check out that
-      // implies the visit was allowed.
+      // Even mid-session, a plan this far past its end must not produce a
+      // record that implies the visit was allowed.
       expect(
         decide(
-          who: member(expiresIn: const Duration(days: -1)),
+          who: member(expiresIn: const Duration(days: -8)),
           last: scan(now.subtract(const Duration(hours: 2))),
         ),
         ScanOutcome.expired,
@@ -82,6 +82,40 @@ void main() {
         expiryDate: null,
       );
       expect(decide(who: broken), ScanOutcome.expired);
+    });
+  });
+
+  group('a member inside their days to pay', () {
+    test('is let in from the day the plan ends', () {
+      expect(
+        decide(who: member(expiresIn: Duration.zero)),
+        ScanOutcome.paymentDue,
+      );
+    });
+
+    test('is still let in on the last day of the window', () {
+      expect(
+        decide(who: member(expiresIn: const Duration(days: -6))),
+        ScanOutcome.paymentDue,
+      );
+    });
+
+    test('counts as a recorded arrival, so the desk hears a let-in sound', () {
+      // The whole point of the window: the member trains, the money is
+      // chased. A refusal would be the wrong sound and the wrong answer.
+      const result = ScanResult(ScanOutcome.paymentDue);
+      expect(result.recorded, isTrue);
+    });
+
+    test('is not written twice when they scan again the same day', () {
+      // The payment matters, but not enough to double the attendance count.
+      expect(
+        decide(
+          who: member(expiresIn: const Duration(days: -3)),
+          last: scan(now.subtract(const Duration(hours: 2))),
+        ),
+        ScanOutcome.alreadyIn,
+      );
     });
   });
 

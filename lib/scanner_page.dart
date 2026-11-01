@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fitstrong_core/fitstrong_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -91,7 +92,21 @@ class _ScannerPageState extends State<ScannerPage> {
   }
 
   /// Staff are usually looking at the member, not the screen.
+  ///
+  /// Three sounds, not two, so the desk can tell what happened without
+  /// looking up: one click means in and paid, two clicks mean in but money
+  /// is owed, and the alert buzz means turned away.
   Future<void> _announce(ScanResult result) async {
+    // Checked first: a member owing money is also a recorded arrival, and
+    // the two beeps are the whole point of telling them apart.
+    if (result.outcome == ScanOutcome.paymentDue) {
+      await HapticFeedback.heavyImpact();
+      await SystemSound.play(SystemSoundType.click);
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+      await SystemSound.play(SystemSoundType.click);
+      return;
+    }
+
     if (result.recorded) {
       await HapticFeedback.mediumImpact();
       await SystemSound.play(SystemSoundType.click);
@@ -414,6 +429,15 @@ class _Look {
         : DateFormat('h:mm a').format(result.at!);
 
     switch (result.outcome) {
+      case ScanOutcome.paymentDue:
+        // Amber, not red: the member is in. The desk's job is to ask for the
+        // money, not to stop them at the door.
+        return _Look(
+          const Color(0xFFB45309),
+          Icons.payments_outlined,
+          'Payment due',
+          'Checked in. ${_overdue(result.member)}',
+        );
       case ScanOutcome.checkedIn:
         return _Look(const Color(0xFF15803D), Icons.check_circle_rounded,
             'Checked in', time == null ? null : 'Marked present at $time');
@@ -424,15 +448,30 @@ class _Look {
             'Checked in', 'Saved on this tablet. It will sync when the '
                 'internet is back.');
       case ScanOutcome.expired:
-        return const _Look(Color(0xFFB91C1C), Icons.block_rounded,
-            'Membership expired', 'Renew the plan before letting them in.');
+        return _Look(
+          const Color(0xFFB91C1C),
+          Icons.block_rounded,
+          'Membership expired',
+          '${_endedLabel(result.member)} The time to pay has run out — '
+              'renew the plan before letting them in.',
+        );
       case ScanOutcome.unknown:
         return const _Look(Color(0xFFB91C1C), Icons.help_outline_rounded,
             'Code not recognised', 'This code has been replaced or removed.');
       case ScanOutcome.alreadyIn:
-        return _Look(const Color(0xFFB45309), Icons.check_circle_outline,
-            'Already checked in',
-            time == null ? null : 'Marked present at $time');
+        // The payment is repeated here because the desk may have missed it
+        // on the first scan of the day, and this is the only other card a
+        // member who owes money can land on.
+        final seen = time == null ? null : 'Marked present at $time';
+        final owes = _isPaymentDue(result.member);
+        return _Look(
+          const Color(0xFFB45309),
+          Icons.check_circle_outline,
+          owes ? 'Already in · payment due' : 'Already checked in',
+          owes
+              ? [if (seen != null) seen, _overdue(result.member)].join(' · ')
+              : seen,
+        );
       case ScanOutcome.failed:
         return const _Look(Color(0xFFB91C1C), Icons.wifi_off_rounded,
             'Could not save', 'Check the connection and scan again.');
@@ -440,6 +479,32 @@ class _Look {
         return const _Look(Color(0xFFB45309), Icons.qr_code_rounded,
             'Not a member code');
     }
+  }
+
+  static bool _isPaymentDue(ScannedMember? member) =>
+      member != null &&
+      member.accessAt(DateTime.now()) == MembershipAccess.paymentDue;
+
+  /// "Plan ended 3 days ago." — or today, or yesterday, said the way the
+  /// desk would say it out loud.
+  static String _endedLabel(ScannedMember? member) {
+    final expiry = member?.expiryDate;
+    if (expiry == null) return 'This membership has no end date on record.';
+
+    final days = CheckinRules.daysSinceExpiry(expiry, DateTime.now());
+    if (days <= 0) return 'Plan ended today.';
+    if (days == 1) return 'Plan ended yesterday.';
+    return 'Plan ended $days days ago.';
+  }
+
+  /// How far past the end they are, and how long is left to settle up.
+  static String _overdue(ScannedMember? member) {
+    final expiry = member?.expiryDate;
+    if (expiry == null) return 'Payment is due.';
+
+    final left = CheckinRules.graceDaysLeft(expiry, DateTime.now());
+    final days = left == 1 ? '1 day' : '$left days';
+    return '${_endedLabel(member)} $days left to renew.';
   }
 }
 

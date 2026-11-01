@@ -18,8 +18,14 @@ enum ScanOutcome {
   /// Our format, but no member has this token. A revoked or deleted code.
   unknown,
 
-  /// Found them, but their plan has run out.
+  /// Found them, and their plan has run out for good: the days they had to
+  /// pay have gone too. Nothing is recorded.
   expired,
+
+  /// Their plan has run out, but they are still inside the days the gym
+  /// gives them to settle up. The arrival is recorded exactly like any
+  /// other; the desk is told to ask for the money.
+  paymentDue,
 
   /// Already recorded today, so nothing was written.
   alreadyIn,
@@ -38,8 +44,12 @@ class ScanResult {
   ///
   /// A queued record counts: it is on the tablet's disk and will sync. The
   /// member was let in either way, so the desk gets the same happy chime.
+  /// A member inside their days to pay counts too: they were let in and the
+  /// arrival was written down. Only the message at the desk differs.
   bool get recorded =>
-      outcome == ScanOutcome.checkedIn || outcome == ScanOutcome.queued;
+      outcome == ScanOutcome.checkedIn ||
+      outcome == ScanOutcome.queued ||
+      outcome == ScanOutcome.paymentDue;
 }
 
 /// Turns a scanned string into an attendance record.
@@ -118,8 +128,17 @@ class CheckinService {
   }) {
     if (token == null) return ScanOutcome.notOurs;
     if (member == null) return ScanOutcome.unknown;
-    if (member.isExpiredAt(now)) return ScanOutcome.expired;
+
+    final access = member.accessAt(now);
+    if (access == MembershipAccess.locked) return ScanOutcome.expired;
+
+    // Checked before the payment, not after: a member who is already down as
+    // here today must not be written twice, whatever they owe. They were
+    // told about the payment on the first scan, and the desk is reminded of
+    // it again on the "already checked in" card.
     if (CheckinRules.alreadyRecordedToday(last)) return ScanOutcome.alreadyIn;
+
+    if (access == MembershipAccess.paymentDue) return ScanOutcome.paymentDue;
 
     return ScanOutcome.checkedIn;
   }
@@ -143,7 +162,7 @@ class CheckinService {
     final now = DateTime.now();
     final outcome = decide(token: token, member: member, last: last, now: now);
 
-    if (outcome != ScanOutcome.checkedIn) {
+    if (outcome != ScanOutcome.checkedIn && outcome != ScanOutcome.paymentDue) {
       return ScanResult(
         outcome,
         member: member,
@@ -151,7 +170,11 @@ class CheckinService {
       );
     }
 
-    return _record(member!, now);
+    return _record(
+      member!,
+      now,
+      paymentDue: outcome == ScanOutcome.paymentDue,
+    );
   }
 
   /// Writes the arrival, without hanging the desk if the server is gone.
@@ -160,7 +183,11 @@ class CheckinService {
   /// it, so awaiting one on a tablet with no Wi-Fi waits forever. The write
   /// is still safe — it is on disk and sends itself later — so after a short
   /// wait the desk is told it is queued rather than left on a spinner.
-  Future<ScanResult> _record(ScannedMember member, DateTime now) async {
+  Future<ScanResult> _record(
+    ScannedMember member,
+    DateTime now, {
+    required bool paymentDue,
+  }) async {
     final write = _attendance.add(Attendance.newRecord(
       memberId: member.id,
       memberName: member.name,
@@ -180,12 +207,22 @@ class CheckinService {
       await write.timeout(serverWait);
       // The stored time comes from the server; this is only what the desk
       // shows for a moment, so the device clock is good enough.
-      return ScanResult(ScanOutcome.checkedIn, member: member, at: now);
+      return ScanResult(
+        paymentDue ? ScanOutcome.paymentDue : ScanOutcome.checkedIn,
+        member: member,
+        at: now,
+      );
     } on TimeoutException {
       // Not a failure. Saying "could not save" here would send staff to scan
       // again, and the duplicate check would then have two records to
       // reconcile — so the honest answer is that it is saved and waiting.
-      return ScanResult(ScanOutcome.queued, member: member, at: now);
+      // Money owing is the more useful thing to say out of the two, and the
+      // record is safe either way, so it wins over the "queued" wording.
+      return ScanResult(
+        paymentDue ? ScanOutcome.paymentDue : ScanOutcome.queued,
+        member: member,
+        at: now,
+      );
     } catch (error) {
       // The server answered and refused: wrong rules, bad data. Retrying
       // will not help, so this one really is a failure.
